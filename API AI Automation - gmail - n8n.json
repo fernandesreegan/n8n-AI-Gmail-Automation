@@ -1,0 +1,165 @@
+{
+  "name": "API AI Automation - gmail - n8n",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -528,
+        -64
+      ],
+      "id": "f0ddecf0-be64-46eb-a6b7-d9199daf41cb",
+      "name": "Telegram Trigger",
+      "webhookId": "44c33d4e-4c04-43db-a9ee-98ed29173b17",
+      "credentials": {
+        "telegramApi": {
+          "id": "TpNnRZkgE48FzKE1",
+          "name": "Telegram_LearnAI_bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are a professional AI email assistant.\n\n**Sender Details:**\n- Name: Fernandes Reegan\n- Email: fernandesreegan@gmail.com\n\n**Instructions:**\n1. Generate a professional, polite, and friendly email based on the user's request.\n2. Always use \"Fernandes Reegan\" in the email signature.\n3. If the user provides a recipient's name and email address, use those details to personalize the email.\n4. If the user provides only a username or email address and requests information about that person, politely explain that you do not have sufficient information to provide those details.\n5. Never invent personal information.\n6. If no recipient email address is provided, use fernandesreegan@gmail.com as the default recipient.\n7. Keep the email short, clear, and professional.\n8. Generate a relevant subject line.\n9. Always end the email with:\n\nBest regards,\nFernandes Reegan\n\n**Output Rules:**\n- Return ONLY valid JSON.\n- Do not include markdown, code fences, or explanations.\n- Use \\n for line breaks in the body.\n- Ensure all JSON values are properly escaped.\n\n**Required JSON Format:**\n\n{\n  \"to\": \"\",\n  \"subject\": \"\",\n  \"body\": \"\"\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -304,
+        -64
+      ],
+      "id": "35ed663f-54e2-41df-821e-60981656d009",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -384,
+        144
+      ],
+      "id": "368501f9-7569-4e5b-ba1e-2381b1508752",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "Bmrji1uGueNpmDPo",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\n\nreturn items.map(item => {\n\n  let raw = item.json.text ?? item.json.output ?? \"\";\n\n  let data;\n\n  try {\n    if (typeof raw === \"object\" && raw !== null) {\n      data = raw;\n    } else {\n      // Remove markdown JSON code fences\n      raw = String(raw)\n        .replace(/```json\\s*/gi, \"\")\n        .replace(/```\\s*/g, \"\")\n        .trim();\n\n      // Parse JSON output\n      data = JSON.parse(raw);\n    }\n  } catch (error) {\n    throw new Error(\n      \"Invalid AI JSON output: \" + error.message\n    );\n  }\n\n  const to = String(data.to ?? \"\").trim();\n  const subject = String(data.subject ?? \"\").trim();\n\n  // Normalize line breaks\n  const body = String(data.body ?? \"\")\n    .replace(/\\\\n/g, \"\\n\")\n    .replace(/\\r\\n/g, \"\\n\")\n    .replace(/\\n{3,}/g, \"\\n\\n\")\n    .trim();\n\n  // Escape HTML\n  const escapeHtml = text => text\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\");\n\n  // Create HTML formatted email\n  const html = body\n    .split(/\\n\\s*\\n/)\n    .map(p =>\n      `<p>${escapeHtml(p).replace(/\\n/g, \"<br>\")}</p>`\n    )\n    .join(\"\\n\");\n\n  return {\n    json: {\n      to,\n      subject,\n      body,\n      html\n    }\n  };\n\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -64
+      ],
+      "id": "b2ed5911-b1cd-4a9d-9588-9a81d8b08b16",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        288,
+        -64
+      ],
+      "id": "c5fa738e-de81-433d-a9fe-b7e82254cdd3",
+      "name": "Send a message",
+      "webhookId": "242ee3fc-f5a3-4e04-b894-d0ef4099826e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "LxVhX0fgVJdP52H1",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7ba04756-bd7f-4aa5-bbff-7718dc090946",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e6100e540e4f6a31f3e60af3c69369c8d0655c692ad244524efdf431edb28d08"
+  },
+  "nodeGroups": [],
+  "id": "HHm33cIG2QUKNWW7",
+  "tags": []
+}
